@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cliente Chat Web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- CONNECTION SCREEN -->
+        <div id="connectionScreen" class="card glass">
+            <div class="card-header">
+                <div class="logo-icon">💬</div>
+                <h2>Cliente Chat: Conexión</h2>
+                <p>Ingresa los parámetros de conexión para iniciar el chat</p>
+            </div>
+            <form id="connectionForm">
+                <div class="input-group">
+                    <label for="txtHost">Host / IP Servidor</label>
+                    <input type="text" id="txtHost" value="localhost" placeholder="Ej: localhost" required>
+                </div>
+                <div class="input-group">
+                    <label for="txtPort">Puerto WebSocket</label>
+                    <input type="number" id="txtPort" value="9080" placeholder="Ej: 9080" required>
+                </div>
+                <div class="input-group">
+                    <label for="txtNick">Nick / Usuario</label>
+                    <input type="text" id="txtNick" placeholder="Tu apodo único" required autocomplete="off">
+                </div>
+                <div class="network-badge" id="netStatusBadge">
+                    <span class="status-dot online"></span>
+                    <span id="netStatusText">Estado Web: Conectado a la Red</span>
+                </div>
+                <button type="submit" id="btnConnect" class="btn btn-primary">
+                    <span>Conectar al Chat</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- CHAT SCREEN -->
+        <div id="chatScreen" class="chat-layout glass hidden">
+            <!-- Sidebar Nicks -->
+            <aside class="chat-sidebar">
+                <div class="sidebar-header">
+                    <h3>Usuarios Conectados</h3>
+                    <span class="badge" id="nickCount">0</span>
+                </div>
+                <ul id="onlineList" class="online-list">
+                    <!-- Dynamic nicks -->
+                </ul>
+                <div class="user-profile">
+                    <div class="avatar" id="userAvatar">U</div>
+                    <div class="user-info">
+                        <span class="user-nick" id="lblMyNick">Nick</span>
+                        <span class="user-status">En línea</span>
+                    </div>
+                    <button id="btnDisconnect" class="btn-icon" title="Desconectar">🚪</button>
+                </div>
+            </aside>
+
+            <!-- Main Chat View -->
+            <main class="chat-main">
+                <header class="chat-header">
+                    <div class="header-info">
+                        <h2 id="chatTitle">Cliente Chat conectado</h2>
+                        <span class="connection-status"><span class="status-dot online"></span> Servidor Activo</span>
+                    </div>
+                </header>
+
+                <div class="messages-container" id="messagesContainer">
+                    <!-- Chat messages inserted dynamically -->
+                </div>
+
+                <form id="messageForm" class="message-form">
+                    <input type="text" id="txtMessage" placeholder="Escribe un mensaje..." autocomplete="off">
+                    <button type="submit" class="btn btn-primary btn-send">
+                        <span>Enviar</span>
+                    </button>
+                </form>
+            </main>
+        </div>
+    </div>
+
+    <!-- ERROR MODAL -->
+    <div id="errorModal" class="modal-backdrop hidden">
+        <div class="modal card glass">
+            <div class="modal-header">
+                <span class="warning-icon">⚠️</span>
+                <h3>ERROR: Nick Existente</h3>
+            </div>
+            <p id="errorModalText">El apodo introducido ya está registrado en el servidor. Por favor elige otro.</p>
+            <button id="btnCloseModal" class="btn btn-primary">Entendido</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

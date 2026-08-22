@@ -1,0 +1,25 @@
+# Java compiled files
+*.class
+*.jar
+*.war
+desktop/bin/
+server/bin/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+
+# Android build outputs
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+.navigation/
+captures/
+*.apk
+*.aar
+
+# Temporary & scratch files
+scratch/
+*.zip

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  chat-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: chat_server
+    ports:
+      - "9000:9000"
+      - "9080:9080"
+    restart: always
+
+  chat-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: chat_web
+    ports:
+      - "8080:80"
+    depends_on:
+      - chat-server
+    restart: always
