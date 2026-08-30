@@ -54,11 +54,10 @@ class ChatActivity : AppCompatActivity() {
 
     private fun startListeningThread() {
         Thread {
-            val reader = ChatSocketClient.reader
+            val reader = ChatSocketClient.reader ?: return@Thread
             try {
-                var line: String?
-                while (isListening && reader != null && reader.readLine().also { line = it } != null) {
-                    val msg = line?.trim() ?: continue
+                while (isListening) {
+                    val msg = reader.readLine()?.trim() ?: break
                     runOnUiThread { processServerMessage(msg) }
                 }
             } catch (_: Exception) {
@@ -114,7 +113,7 @@ class ChatActivity : AppCompatActivity() {
         val nicksArray = onlineNicks.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("Usuarios Conectados (${onlineNicks.size})")
-            .setItems(if (nicksArray.isNotEmpty()) nicksArray else arrayOf("Ninguno")) null
+            .setItems(if (nicksArray.isNotEmpty()) nicksArray else arrayOf("Ninguno"), null)
             .setPositiveButton("Cerrar", null)
             .show()
     }

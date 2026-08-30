@@ -50,15 +50,15 @@ public final class ConnectivityUsageExample extends Activity {
         String validation;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             validation = "validation unavailable before API 23";
-        } else if (state.isCaptivePortalDetected()) {
+        } else if (state.getCaptivePortalDetected()) {
             validation = "captive portal detected";
-        } else if (state.isInternetValidated()) {
+        } else if (state.getInternetValidated()) {
             validation = "Internet validated by Android";
         } else {
             validation = "not currently validated by Android";
         }
         return "Passive state: "
-                + (state.isConnected() ? "network available" : "no usable network")
+                + (state.getConnected() ? "network available" : "no usable network")
                 + "\nAndroid: " + validation;
     }
 

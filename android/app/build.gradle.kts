@@ -31,6 +31,11 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    // Keep the Java API snapshot in the repository for reference, but compile
+    // only the Kotlin implementation in this Kotlin module to avoid duplicate
+    // classes with the same fully-qualified name.
+    sourceSets["main"].java.exclude("net/i2p/android/router/util/ConnectivityAndInternetAccess.java")
 }
 
 dependencies {
