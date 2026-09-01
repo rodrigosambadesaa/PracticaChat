@@ -78,6 +78,12 @@ java -cp desktop/bin chat.desktop.ClienteChatGUI
    - **Puerto**: `9000`
    - **Nick**: Tu apodo deseado.
 
+Para generar un APK instalable, usa la variante `release`; el proyecto la firma
+automáticamente con el keystore debug local si no se configura uno de release.
+Para distribución, define `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD` antes de ejecutar
+`assembleRelease`.
+
 ---
 
 ## 📡 Integración de Conectividad (Gists)

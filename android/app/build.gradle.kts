@@ -15,8 +15,30 @@ android {
         versionName = "1.0"
     }
 
+    // A release APK must be signed before it can be installed. For CI or
+    // production builds, provide a dedicated keystore through environment
+    // variables. The local debug keystore fallback keeps `assembleRelease`
+    // usable on a developer machine without putting credentials in Git.
+    signingConfigs {
+        create("release") {
+            val configuredKeystore = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+            if (configuredKeystore != null) {
+                storeFile = file(configuredKeystore)
+                storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+                keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+                keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+            } else {
+                storeFile = file(System.getProperty("user.home") + "/.android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
