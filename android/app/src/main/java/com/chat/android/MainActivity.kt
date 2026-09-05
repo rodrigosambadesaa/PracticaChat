@@ -15,6 +15,7 @@ import net.i2p.android.router.util.ConnectivityAndInternetAccess
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.charset.StandardCharsets
 
@@ -90,6 +91,15 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        // Cheap local gate. The real socket operation still owns its timeouts
+        // and exception handling because this state can change immediately.
+        if (!ConnectivityAndInternetAccess.isConnected(this)) {
+            tvNetworkStatus.text = "Estado Red: Sin Conexión"
+            tvNetworkStatus.setTextColor(Color.RED)
+            Toast.makeText(this, "Sin conexión de red", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val port = portStr.toIntOrNull()
         if (port == null) {
             Toast.makeText(this, "Puerto inválido", Toast.LENGTH_SHORT).show()
@@ -100,10 +110,14 @@ class MainActivity : AppCompatActivity() {
 
         // Run socket connection on background thread
         Thread {
+            var socket: Socket? = null
             try {
-                val socket = Socket(host, port)
-                val reader = BufferedReader(InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
-                val writer = PrintWriter(socket.getOutputStream(), true)
+                val connectedSocket = Socket()
+                socket = connectedSocket
+                connectedSocket.connect(InetSocketAddress(host, port), SOCKET_CONNECT_TIMEOUT_MS)
+                connectedSocket.soTimeout = SOCKET_READ_TIMEOUT_MS
+                val reader = BufferedReader(InputStreamReader(connectedSocket.getInputStream(), StandardCharsets.UTF_8))
+                val writer = PrintWriter(connectedSocket.getOutputStream(), true)
 
                 writer.println("NICK $nick")
                 val response = reader.readLine()
@@ -112,7 +126,7 @@ class MainActivity : AppCompatActivity() {
                     btnConnect.isEnabled = true
                     if (response != null && response.startsWith("ACCEPT ")) {
                         // Successfully connected, pass socket details to ChatActivity
-                        ChatSocketClient.activeSocket = socket
+                        ChatSocketClient.activeSocket = connectedSocket
                         ChatSocketClient.reader = reader
                         ChatSocketClient.writer = writer
                         ChatSocketClient.nick = nick
@@ -122,7 +136,7 @@ class MainActivity : AppCompatActivity() {
                         }
                         startActivity(intent)
                     } else {
-                        socket.close()
+                        connectedSocket.close()
                         // Requirement: Show error if nick exists
                         AlertDialog.Builder(this)
                             .setTitle("Error de Conexión")
@@ -132,6 +146,10 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             } catch (e: Exception) {
+                socket?.close()
+                if (NetworkOperationPolicy.isNetworkFailure(e)) {
+                    runOnUiThread { runActiveDiagnostic() }
+                }
                 runOnUiThread {
                     btnConnect.isEnabled = true
                     AlertDialog.Builder(this)
@@ -150,5 +168,10 @@ class MainActivity : AppCompatActivity() {
         internetRequest?.cancel()
         internetRequest = null
         super.onStop()
+    }
+
+    companion object {
+        private const val SOCKET_CONNECT_TIMEOUT_MS = 5_000
+        private const val SOCKET_READ_TIMEOUT_MS = 7_000
     }
 }

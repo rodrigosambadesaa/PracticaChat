@@ -9,6 +9,7 @@ import android.widget.ListView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.OnBackPressedCallback
 
 class ChatActivity : AppCompatActivity() {
 
@@ -48,6 +49,11 @@ class ChatActivity : AppCompatActivity() {
         btnSend.setOnClickListener { sendMessage() }
         btnUsers.setOnClickListener { showUsersDialog() }
         btnDisconnect.setOnClickListener { disconnectAndFinish() }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                disconnectAndFinish()
+            }
+        })
 
         startListeningThread()
     }
@@ -126,7 +132,4 @@ class ChatActivity : AppCompatActivity() {
         finish()
     }
 
-    override fun onBackPressed() {
-        disconnectAndFinish()
-    }
 }

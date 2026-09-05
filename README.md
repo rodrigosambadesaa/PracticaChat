@@ -84,6 +84,12 @@ Para distribución, define `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`,
 `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD` antes de ejecutar
 `assembleRelease`.
 
+Las operaciones de red realizan primero una comprobación local y barata del
+estado de conectividad. Si no hay una red utilizable, se evita abrir el socket
+y se muestra el estado offline. Si la operación real falla por un error de red,
+se ejecuta entonces el diagnóstico general; las respuestas del servidor no se
+sondean de nuevo.
+
 ---
 
 ## 📡 Integración de Conectividad (Gists)
