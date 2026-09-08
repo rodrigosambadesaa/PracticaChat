@@ -54,7 +54,10 @@ class MainActivity : AppCompatActivity() {
         // Passive network observation using Gist Android Connectivity library
         networkObserver = ConnectivityAndInternetAccess.observeNetwork(this) { state ->
             runOnUiThread {
-                val usable = state.connected
+                val usable = NetworkOperationPolicy.canStartRemoteRequest(
+                    state.connected,
+                    ConnectivityAndInternetAccess.hasPhysicalNetwork(this)
+                )
                 tvNetworkStatus.text = if (usable) "Estado Red: Disponible" else "Estado Red: Sin Conexión"
                 tvNetworkStatus.setTextColor(if (usable) Color.parseColor("#2E7D32") else Color.RED)
             }
@@ -63,6 +66,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun runActiveDiagnostic() {
         internetRequest?.cancel()
+        if (!NetworkOperationPolicy.canStartRemoteRequest(
+                ConnectivityAndInternetAccess.isConnected(this),
+                ConnectivityAndInternetAccess.hasPhysicalNetwork(this)
+            )
+        ) {
+            tvNetworkStatus.text = "Estado Red: Sin Conexión"
+            tvNetworkStatus.setTextColor(Color.RED)
+            btnCheckInternet.isEnabled = true
+            Toast.makeText(this, "Sin conexión de red", Toast.LENGTH_SHORT).show()
+            return
+        }
         tvNetworkStatus.text = "Diagnóstico en curso..."
         btnCheckInternet.isEnabled = false
 
@@ -93,7 +107,11 @@ class MainActivity : AppCompatActivity() {
 
         // Cheap local gate. The real socket operation still owns its timeouts
         // and exception handling because this state can change immediately.
-        if (!ConnectivityAndInternetAccess.isConnected(this)) {
+        val canStartRemoteRequest = NetworkOperationPolicy.canStartRemoteRequest(
+            ConnectivityAndInternetAccess.isConnected(this),
+            ConnectivityAndInternetAccess.hasPhysicalNetwork(this)
+        )
+        if (!canStartRemoteRequest) {
             tvNetworkStatus.text = "Estado Red: Sin Conexión"
             tvNetworkStatus.setTextColor(Color.RED)
             Toast.makeText(this, "Sin conexión de red", Toast.LENGTH_SHORT).show()

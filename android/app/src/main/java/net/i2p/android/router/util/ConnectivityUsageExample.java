@@ -16,7 +16,9 @@ import net.i2p.android.router.util.ConnectivityAndInternetAccess;
  * <p>The normal path is passive and event-driven. Tap the TextView to run an
  * explicit active Internet diagnostic. A real application should normally make
  * its backend request directly and reserve that diagnostic for network-like
- * failures or troubleshooting.
+ * failures or troubleshooting. The active diagnostic can prove broader
+ * reachability through system DNS, explicit DNS, TCP, NTP, HTTP(S), or TLS,
+ * including IPv6 targets when the selected network supports them.
  */
 public final class ConnectivityUsageExample extends Activity {
     private TextView status;
@@ -50,23 +52,29 @@ public final class ConnectivityUsageExample extends Activity {
         String validation;
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
             validation = "validation unavailable before API 23";
-        } else if (state.getCaptivePortalDetected()) {
+        } else if (state.isCaptivePortalDetected()) {
             validation = "captive portal detected";
-        } else if (state.getInternetValidated()) {
+        } else if (state.isInternetValidated()) {
             validation = "Internet validated by Android";
         } else {
             validation = "not currently validated by Android";
         }
+        String attemptState = ConnectivityAndInternetAccess.isConnectionAttemptStalled(this)
+                ? "connection attempt stalled"
+                : (ConnectivityAndInternetAccess.isConnecting(this)
+                ? "connecting"
+                : "not connecting");
         return "Passive state: "
-                + (state.getConnected() ? "network available" : "no usable network")
-                + "\nAndroid: " + validation;
+                + (state.isConnected() ? "network available" : "no usable network")
+                + "\nAndroid: " + validation
+                + "\nAttempt: " + attemptState;
     }
 
     private void runActiveDiagnostic() {
         if (internetRequest != null) {
             internetRequest.cancel();
         }
-        status.setText("Running explicit Internet diagnostic…");
+        status.setText("Running explicit multi-layer Internet diagnostic…");
         internetRequest = connectivity.checkInternetAsync(
                 this,
                 result -> {
@@ -76,7 +84,10 @@ public final class ConnectivityUsageExample extends Activity {
                             : "Diagnostic could not establish Internet reachability";
                     ConnectivityAndInternetAccess.NetworkState passive =
                             ConnectivityAndInternetAccess.snapshotNetworkState(this);
-                    status.setText(diagnostic + "\n\n" + describeState(passive));
+                    status.setText(diagnostic
+                            + "\nAttempted: " + result.getAttemptedHosts()
+                            + "\nElapsed: " + result.getElapsedMilliseconds() + " ms"
+                            + "\n\n" + describeState(passive));
                 });
     }
 

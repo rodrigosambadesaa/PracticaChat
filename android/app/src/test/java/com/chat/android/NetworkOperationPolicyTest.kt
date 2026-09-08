@@ -10,6 +10,14 @@ import org.junit.Test
 
 class NetworkOperationPolicyTest {
     @Test
+    fun requiresBothUsableConnectivityAndPhysicalTransport() {
+        assertTrue(NetworkOperationPolicy.canStartRemoteRequest(true, true))
+        assertFalse(NetworkOperationPolicy.canStartRemoteRequest(true, false))
+        assertFalse(NetworkOperationPolicy.canStartRemoteRequest(false, true))
+        assertFalse(NetworkOperationPolicy.canStartRemoteRequest(false, false))
+    }
+
+    @Test
     fun classifiesNetworkFailuresForPostFailureDiagnostics() {
         assertTrue(NetworkOperationPolicy.isNetworkFailure(UnknownHostException()))
         assertTrue(NetworkOperationPolicy.isNetworkFailure(ConnectException()))

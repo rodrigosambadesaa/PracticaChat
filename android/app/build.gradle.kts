@@ -11,8 +11,8 @@ android {
         applicationId = "com.chat.android"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
     }
 
     // A release APK must be signed before it can be installed. For CI or

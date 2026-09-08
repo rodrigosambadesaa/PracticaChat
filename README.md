@@ -85,10 +85,19 @@ Para distribución, define `ANDROID_KEYSTORE_PATH`, `ANDROID_KEYSTORE_PASSWORD`,
 `assembleRelease`.
 
 Las operaciones de red realizan primero una comprobación local y barata del
-estado de conectividad. Si no hay una red utilizable, se evita abrir el socket
-y se muestra el estado offline. Si la operación real falla por un error de red,
-se ejecuta entonces el diagnóstico general; las respuestas del servidor no se
-sondean de nuevo.
+estado de conectividad con `isConnected(context) && hasPhysicalNetwork(context)`.
+Si no hay una red física utilizable, incluida una VPN sin Wi-Fi, datos móviles
+o Ethernet subyacentes, se evita abrir el socket y se muestra el estado offline.
+Si la operación real falla por un error de red, se ejecuta entonces el
+diagnóstico general; las respuestas del servidor no se sondean de nuevo.
+
+Pruebas manuales de conectividad Android:
+
+- Wi-Fi normal, VPN sobre Wi-Fi y recuperación de red: operaciones permitidas.
+- VPN-only con Wi-Fi/datos/Ethernet apagados: `hasPhysicalNetwork` es falso y
+  no se inicia la conexión TCP.
+- Portal cautivo: `NetworkObserver` conserva por separado `VALIDATED` y
+  `CAPTIVE_PORTAL`; ninguno sustituye a `hasPhysicalNetwork`.
 
 ---
 

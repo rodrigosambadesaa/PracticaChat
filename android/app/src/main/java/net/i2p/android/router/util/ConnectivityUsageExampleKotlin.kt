@@ -12,7 +12,9 @@ import net.i2p.android.router.util.ConnectivityAndInternetAccess
  * The normal path is passive and event-driven. Tap the TextView to run an
  * explicit active Internet diagnostic. A real application should normally make
  * its backend request directly and reserve that diagnostic for network-like
- * failures or troubleshooting.
+ * failures or troubleshooting. The active diagnostic can prove broader
+ * reachability through system DNS, explicit DNS, TCP, NTP, HTTP(S), or TLS,
+ * including IPv6 targets when the selected network supports them.
  */
 class ConnectivityUsageExampleKotlin : Activity() {
     private lateinit var status: TextView
@@ -49,13 +51,20 @@ class ConnectivityUsageExampleKotlin : Activity() {
             state.internetValidated -> "Internet validated by Android"
             else -> "not currently validated by Android"
         }
+        val attemptState = when {
+            ConnectivityAndInternetAccess.isConnectionAttemptStalled(this) ->
+                "connection attempt stalled"
+            ConnectivityAndInternetAccess.isConnecting(this) -> "connecting"
+            else -> "not connecting"
+        }
         return "Passive state: ${if (state.connected) "network available" else "no usable network"}" +
-            "\nAndroid: $validation"
+            "\nAndroid: $validation" +
+            "\nAttempt: $attemptState"
     }
 
     private fun runActiveDiagnostic() {
         internetRequest?.cancel()
-        status.setText("Running explicit Internet diagnostic…")
+        status.setText("Running explicit multi-layer Internet diagnostic…")
         internetRequest = connectivity.checkInternetAsync(this) { result ->
             internetRequest = null
             val diagnostic = if (result.reachable) {
@@ -64,7 +73,11 @@ class ConnectivityUsageExampleKotlin : Activity() {
                 "Diagnostic could not establish Internet reachability"
             }
             val passive = ConnectivityAndInternetAccess.snapshotNetworkState(this)
-            status.setText("$diagnostic\n\n${describeState(passive)}")
+            status.setText(
+                "$diagnostic\nAttempted: ${result.attemptedHosts}" +
+                    "\nElapsed: ${result.elapsedMilliseconds} ms" +
+                    "\n\n${describeState(passive)}"
+            )
         }
     }
 
