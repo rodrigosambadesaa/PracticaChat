@@ -7,9 +7,11 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ListView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.OnBackPressedCallback
+import net.i2p.android.router.util.ConnectivityAndInternetAccess
 
 class ChatActivity : AppCompatActivity() {
 
@@ -26,6 +28,8 @@ class ChatActivity : AppCompatActivity() {
     private val onlineNicks = ArrayList<String>()
     private var isListening = true
     private var nickName = ""
+    private var networkObserver: ConnectivityAndInternetAccess.NetworkObserver? = null
+    private var lastObservedConnected: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +60,20 @@ class ChatActivity : AppCompatActivity() {
         })
 
         startListeningThread()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        networkObserver = ConnectivityAndInternetAccess.observeNetwork(this) { state ->
+            if (state.captivePortalDetected) {
+                Toast.makeText(this, R.string.captive_portal, Toast.LENGTH_SHORT).show()
+            } else if (lastObservedConnected == true && !state.connected) {
+                Toast.makeText(this, R.string.toast_no_network, Toast.LENGTH_SHORT).show()
+            } else if (lastObservedConnected == false && state.connected) {
+                Toast.makeText(this, R.string.connected_again, Toast.LENGTH_SHORT).show()
+            }
+            lastObservedConnected = state.connected
+        }
     }
 
     private fun startListeningThread() {
@@ -106,10 +124,20 @@ class ChatActivity : AppCompatActivity() {
     private fun sendMessage() {
         val text = etMessage.text.toString().trim()
         if (text.isNotEmpty()) {
+            if (!NetworkOperationPolicy.hasUsableNetwork(this)) {
+                Toast.makeText(this, R.string.toast_no_network, Toast.LENGTH_SHORT).show()
+                return
+            }
             Thread {
                 try {
-                    ChatSocketClient.writer?.println("MSG $text")
-                } catch (_: Exception) {}
+                    val writer = ChatSocketClient.writer ?: throw java.io.IOException("writer unavailable")
+                    writer.println("MSG $text")
+                    if (writer.checkError()) throw java.io.IOException("write failed")
+                } catch (error: Exception) {
+                    runOnUiThread {
+                        Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show()
+                    }
+                }
             }.start()
             etMessage.setText("")
         }
@@ -130,6 +158,13 @@ class ChatActivity : AppCompatActivity() {
             ChatSocketClient.disconnect()
         }.start()
         finish()
+    }
+
+    override fun onStop() {
+        networkObserver?.close()
+        networkObserver = null
+        lastObservedConnected = null
+        super.onStop()
     }
 
 }

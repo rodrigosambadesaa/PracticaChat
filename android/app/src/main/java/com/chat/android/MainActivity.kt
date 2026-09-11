@@ -30,6 +30,7 @@ class MainActivity : AppCompatActivity() {
 
     private var networkObserver: ConnectivityAndInternetAccess.NetworkObserver? = null
     private var internetRequest: ConnectivityAndInternetAccess.Request? = null
+    private var lastObservedConnected: Boolean? = null
     private val connectivity by lazy {
         ConnectivityAndInternetAccess.Builder().build()
     }
@@ -58,8 +59,14 @@ class MainActivity : AppCompatActivity() {
                     state.connected,
                     ConnectivityAndInternetAccess.hasPhysicalNetwork(this)
                 )
-                tvNetworkStatus.text = if (usable) "Estado Red: Disponible" else "Estado Red: Sin Conexión"
+                tvNetworkStatus.text = if (usable) getString(R.string.network_available) else getString(R.string.network_unavailable)
                 tvNetworkStatus.setTextColor(if (usable) Color.parseColor("#2E7D32") else Color.RED)
+                if (state.captivePortalDetected) {
+                    Toast.makeText(this, R.string.captive_portal, Toast.LENGTH_SHORT).show()
+                } else if (lastObservedConnected == false && usable) {
+                    Toast.makeText(this, R.string.connected_again, Toast.LENGTH_SHORT).show()
+                }
+                lastObservedConnected = usable
             }
         }
     }
@@ -71,10 +78,10 @@ class MainActivity : AppCompatActivity() {
                 ConnectivityAndInternetAccess.hasPhysicalNetwork(this)
             )
         ) {
-            tvNetworkStatus.text = "Estado Red: Sin Conexión"
+            tvNetworkStatus.text = getString(R.string.network_unavailable)
             tvNetworkStatus.setTextColor(Color.RED)
             btnCheckInternet.isEnabled = true
-            Toast.makeText(this, "Sin conexión de red", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_network, Toast.LENGTH_SHORT).show()
             return
         }
         tvNetworkStatus.text = "Diagnóstico en curso..."
@@ -112,15 +119,15 @@ class MainActivity : AppCompatActivity() {
             ConnectivityAndInternetAccess.hasPhysicalNetwork(this)
         )
         if (!canStartRemoteRequest) {
-            tvNetworkStatus.text = "Estado Red: Sin Conexión"
+            tvNetworkStatus.text = getString(R.string.network_unavailable)
             tvNetworkStatus.setTextColor(Color.RED)
-            Toast.makeText(this, "Sin conexión de red", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.toast_no_network, Toast.LENGTH_SHORT).show()
             return
         }
 
         val port = portStr.toIntOrNull()
         if (port == null) {
-            Toast.makeText(this, "Puerto inválido", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.invalid_port, Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -165,24 +172,40 @@ class MainActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 socket?.close()
-                if (NetworkOperationPolicy.isNetworkFailure(e)) {
-                    runOnUiThread { runActiveDiagnostic() }
-                }
                 runOnUiThread {
                     btnConnect.isEnabled = true
-                    AlertDialog.Builder(this)
-                        .setTitle("Error de Red")
-                        .setMessage("No se pudo conectar al servidor: ${e.message}")
-                        .setPositiveButton("Aceptar", null)
-                        .show()
+                    if (NetworkOperationPolicy.isNetworkFailure(e)) {
+                        diagnoseBackendFailure()
+                    } else {
+                        Toast.makeText(this, R.string.connection_failed, Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }.start()
     }
 
+    private fun diagnoseBackendFailure() {
+        internetRequest?.cancel()
+        if (!NetworkOperationPolicy.hasUsableNetwork(this)) {
+            Toast.makeText(this, R.string.toast_no_network, Toast.LENGTH_SHORT).show()
+            return
+        }
+        Toast.makeText(this, R.string.backend_unavailable_checking, Toast.LENGTH_SHORT).show()
+        internetRequest = connectivity.checkInternetAsync(this) { result ->
+            internetRequest = null
+            val message = if (result.reachable) {
+                R.string.backend_unavailable
+            } else {
+                R.string.internet_unavailable
+            }
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onStop() {
         networkObserver?.close()
         networkObserver = null
+        lastObservedConnected = null
         internetRequest?.cancel()
         internetRequest = null
         super.onStop()

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cliente Chat</string>
+    <string name="network_available">Estado Red: Disponible</string>
+    <string name="network_unavailable">Estado Red: Sin Conexión</string>
+    <string name="toast_no_network">Sin conexión de red.</string>
+    <string name="internet_unavailable">No se puede acceder a Internet.</string>
+    <string name="backend_unavailable">Hay conexión a Internet, pero el servicio no está disponible.</string>
+    <string name="backend_unavailable_checking">El servicio no responde; comprobando Internet…</string>
+    <string name="captive_portal">La red requiere iniciar sesión para acceder a Internet.</string>
+    <string name="connection_failed">No se pudo conectar al servidor.</string>
+    <string name="invalid_port">Puerto inválido.</string>
+    <string name="connected_again">Conexión recuperada.</string>
+</resources>

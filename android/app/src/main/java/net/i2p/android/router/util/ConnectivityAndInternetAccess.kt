@@ -120,6 +120,7 @@ class ConnectivityAndInternetAccess private constructor(
         fun onResult(result: IcmpResult)
     }
 
+    @ConsistentCopyVisibility
     data class InternetResult internal constructor(
         val reachable: Boolean,
         val reachedHost: String?,
@@ -135,6 +136,7 @@ class ConnectivityAndInternetAccess private constructor(
      * This is not an authoritative Internet-availability signal because many
      * otherwise functional networks deliberately filter ICMP.
      */
+    @ConsistentCopyVisibility
     data class IcmpResult internal constructor(
         val reachable: Boolean,
         val reachedAddress: String?,
@@ -170,18 +172,13 @@ class ConnectivityAndInternetAccess private constructor(
     }
 
     /** Cheap passive state of the application's default network. */
+    @ConsistentCopyVisibility
     data class NetworkState internal constructor(
         val connected: Boolean,
         val internetValidated: Boolean,
         val captivePortalDetected: Boolean,
         val observedAtElapsedRealtime: Long
     ) {
-        // Explicit Java-friendly accessors: Kotlin boolean properties otherwise
-        // expose getConnected()/getInternetValidated() to Java callers.
-        fun isConnected(): Boolean = connected
-        fun isInternetValidated(): Boolean = internetValidated
-        fun isCaptivePortalDetected(): Boolean = captivePortalDetected
-
         internal fun sameConnectivityState(other: NetworkState): Boolean =
             connected == other.connected &&
                 internetValidated == other.internetValidated &&
@@ -233,7 +230,8 @@ class ConnectivityAndInternetAccess private constructor(
                         networkCapabilities: NetworkCapabilities
                     ) {
                         currentDefaultNetwork = network
-                        publish(networkStateFromCapabilities(networkCapabilities))
+                        publish(networkStateFromCapabilities(
+                            connectivityManager, networkCapabilities))
                     }
 
                     override fun onLost(network: Network) {
@@ -559,7 +557,11 @@ class ConnectivityAndInternetAccess private constructor(
             if (network == null) {
                 return false
             }
-            return manager(context).getNetworkCapabilities(network).isUsable()
+            val connectivityManager = manager(context)
+            return isEffectivelyUsable(
+                connectivityManager,
+                connectivityManager.getNetworkCapabilities(network)
+            )
         }
 
         @JvmStatic
@@ -683,7 +685,10 @@ class ConnectivityAndInternetAccess private constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val active = connectivityManager.activeNetwork
                 if (active != null &&
-                    connectivityManager.getNetworkCapabilities(active).isUsable()
+                    isEffectivelyUsable(
+                        connectivityManager,
+                        connectivityManager.getNetworkCapabilities(active)
+                    )
                 ) {
                     clearConnectionAttempts()
                     return true
@@ -693,7 +698,10 @@ class ConnectivityAndInternetAccess private constructor(
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 if (connectivityManager.allNetworks.any { network ->
-                        connectivityManager.getNetworkCapabilities(network).isUsable()
+                        isEffectivelyUsable(
+                            connectivityManager,
+                            connectivityManager.getNetworkCapabilities(network)
+                        )
                     }
                 ) {
                     clearConnectionAttempts()
@@ -709,28 +717,17 @@ class ConnectivityAndInternetAccess private constructor(
             return connected
         }
 
-        /**
-         * Cheap passive guard that ignores a dangling VPN-only default network.
-         * A VPN capability can remain present after its underlying Wi-Fi/mobile
-         * transport disappeared, so it must not make the app appear connected.
-         */
+        /** Returns whether a usable non-VPN network exists beneath the active path. */
+        @JvmStatic
+        fun hasUnderlyingNetwork(context: Context?): Boolean {
+            context ?: throw IllegalArgumentException("context == null")
+            return hasUsableNonVpnNetwork(manager(context))
+        }
+
+        /** Compatibility alias for [hasUnderlyingNetwork]. */
         @JvmStatic
         fun hasPhysicalNetwork(context: Context?): Boolean {
-            context ?: throw IllegalArgumentException("context == null")
-            val connectivityManager = manager(context)
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                return connectivityManager.allNetworks.any { network ->
-                    val capabilities = connectivityManager.getNetworkCapabilities(network)
-                    capabilities.isUsable() && (
-                        capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true ||
-                        capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true ||
-                        capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true
-                    )
-                }
-            }
-
-            return connectivityManager.activeNetworkInfo.isConnectedLegacy()
+            return hasUnderlyingNetwork(context)
         }
 
         /** Cheap point-in-time snapshot of the application's default network. */
@@ -742,6 +739,7 @@ class ConnectivityAndInternetAccess private constructor(
                 val active = connectivityManager.activeNetwork
                     ?: return disconnectedNetworkState()
                 return networkStateFromCapabilities(
+                    connectivityManager,
                     connectivityManager.getNetworkCapabilities(active)
                 )
             }
@@ -789,9 +787,8 @@ class ConnectivityAndInternetAccess private constructor(
             }
 
             val capabilities = manager(context).getNetworkCapabilities(network)
-            return capabilities != null &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            return isEffectivelyUsable(manager(context), capabilities) &&
+                capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
         }
 
         /**
@@ -1308,18 +1305,6 @@ class ConnectivityAndInternetAccess private constructor(
             val started = SystemClock.elapsedRealtime()
             val deadline = started + TOTAL_PROBE_TIMEOUT_MS
             val attempted = CopyOnWriteArrayList<String>()
-
-            // Active diagnostics are network operations too. Avoid starting
-            // DNS/TCP/NTP/HTTP/TLS probes when only a dangling VPN remains.
-            if (!isConnected(context) || !hasPhysicalNetwork(context)) {
-                return InternetResult(
-                    false,
-                    null,
-                    attempted.toList(),
-                    SystemClock.elapsedRealtime() - started
-                )
-            }
-
             val connectivityManager = manager(context)
             val network = selectProbeNetwork(connectivityManager)
 
@@ -1748,9 +1733,10 @@ class ConnectivityAndInternetAccess private constructor(
         }
 
         private fun networkStateFromCapabilities(
+            connectivityManager: ConnectivityManager,
             capabilities: NetworkCapabilities?
         ): NetworkState {
-            val connected = capabilities.isUsable()
+            val connected = isEffectivelyUsable(connectivityManager, capabilities)
             val validated = connected &&
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                 capabilities?.hasCapability(
@@ -1779,6 +1765,8 @@ class ConnectivityAndInternetAccess private constructor(
             context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
                 ?: throw IllegalStateException("ConnectivityManager unavailable")
 
+        // Low-level capability check only. Use isEffectivelyUsable() for
+        // application connectivity, including VPN underlying-network handling.
         private fun NetworkCapabilities?.isUsable(): Boolean {
             if (this == null ||
                 !hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -1788,6 +1776,34 @@ class ConnectivityAndInternetAccess private constructor(
 
             return Build.VERSION.SDK_INT < Build.VERSION_CODES.P ||
                 hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
+        }
+
+        private fun isEffectivelyUsable(
+            connectivityManager: ConnectivityManager,
+            capabilities: NetworkCapabilities?
+        ): Boolean {
+            if (!capabilities.isUsable()) return false
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP ||
+                !capabilities!!.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            ) return true
+            return hasUsableNonVpnNetwork(connectivityManager)
+        }
+
+        private fun hasUsableNonVpnNetwork(
+            connectivityManager: ConnectivityManager
+        ): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+                return connectivityManager.activeNetworkInfo.isConnectedLegacy()
+            }
+            return connectivityManager.allNetworks.any { network ->
+                val capabilities = connectivityManager.getNetworkCapabilities(network)
+                capabilities.isUsable() &&
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        capabilities!!.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    } else {
+                        !capabilities!!.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+                    }
+            }
         }
 
         private fun hasTransport(context: Context?, transport: Int): Boolean {
@@ -1891,7 +1907,10 @@ class ConnectivityAndInternetAccess private constructor(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val active = connectivityManager.activeNetwork
                 if (active != null &&
-                    connectivityManager.getNetworkCapabilities(active).isUsable()
+                    isEffectivelyUsable(
+                        connectivityManager,
+                        connectivityManager.getNetworkCapabilities(active)
+                    )
                 ) {
                     return active
                 }
@@ -1899,7 +1918,10 @@ class ConnectivityAndInternetAccess private constructor(
             }
 
             return connectivityManager.allNetworks.firstOrNull { network ->
-                connectivityManager.getNetworkCapabilities(network).isUsable()
+                isEffectivelyUsable(
+                    connectivityManager,
+                    connectivityManager.getNetworkCapabilities(network)
+                )
             }
         }
 
