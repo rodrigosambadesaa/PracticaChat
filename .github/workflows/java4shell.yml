@@ -1,0 +1,26 @@
+name: Java4Shell (CVE-2026-114938) Docker check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  verify-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Refresh base images and build
+        run: docker build --pull -t practica-chat-java4shell ./server
+      - name: Check effective Base64 intrinsic status
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint java practica-chat-java4shell -XX:+PrintFlagsFinal -version 2>&1 \
+            | grep -E 'UseBASE64Intrinsics[[:space:]]+=[[:space:]]+false'
